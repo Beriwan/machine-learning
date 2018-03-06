@@ -25,7 +25,7 @@ def classify0(inX, dataSet, labels, k):
     return soredClassCount[0][0]
 
 
-def file2matrix(filename):
+def file2matrix(filename):  #导入数据
     fr = open(filename)
     arrayOLines = fr.readlines()
     numberOfLines = len(arrayOLines)
