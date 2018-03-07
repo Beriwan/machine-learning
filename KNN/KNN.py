@@ -1,5 +1,6 @@
 from numpy import *
 import operator
+from os import listdir
 
 
 def createDataSet():
@@ -25,20 +26,100 @@ def classify0(inX, dataSet, labels, k):
     return soredClassCount[0][0]
 
 
-def file2matrix(filename):  #导入数据
+def file2matrix(filename):  # 导入数据
     fr = open(filename)
     arrayOLines = fr.readlines()
     numberOfLines = len(arrayOLines)
     returnMat = zeros((numberOfLines, 3))
     classLabelVector = []
     index = 0
-    for line in arrayOLines : 
-        # 截取文本行中回车符
-        line = line.strip()
-        # 以'\t'分割字符串，返回一个元素列表
-        listFromLine = line.split('\t')
+    for line in arrayOLines:
+        line = line.strip()   # 截取文本行中回车符
+        listFromLine = line.split('\t')  # 以'\t'分割字符串，返回一个元素列表
         returnMat[index, :] = listFromLine[0:3]
-        # 索引值-1表示列表中的最后一列元素
         classLabelVector.append(int(listFromLine[-1]))
         index += 1
     return returnMat, classLabelVector
+
+
+# 归一化数据，将任意取值范围值转化为0-1区间
+#newValue = (oldValue - min) / (max - min)
+def autoNorm(dataSet):
+    minVals = dataSet.min(0)
+    maxVals = dataSet.max(0)
+    ranges = maxVals - minVals
+    normDataSet = zeros(shape(dataSet))
+    m = dataSet.shape[0]
+    normDataSet = dataSet - tile(minVals, (m, 1))
+    normDataSet = normDataSet / tile(ranges, (m, 1))
+    return normDataSet, ranges, minVals
+
+
+def datingClassTest():  # 测试函数
+    hoRatio = 0.10
+    datingDataMat, datingLabels = file2matrix('datingTestSet2.txt')
+    normMat, ranges, minVals = autoNorm(datingDataMat)
+    m = normMat.shape[0]
+    numTestVecs = int(m*hoRatio)
+    errorCount = 0
+    for i in range(numTestVecs):  # 前10%测试。后90%训练
+        classifierResult = classify0(normMat[i, :], normMat[numTestVecs:m, :],
+                                     datingLabels[numTestVecs:m], 3)
+        print("the classifier came back with: %d , the real answer is: %d"
+              % (classifierResult, datingLabels[i]))
+        if classifierResult != datingLabels[i]:
+            errorCount += 1.0
+    print("The total error rate is: %f" % (errorCount/float(numTestVecs)))
+
+
+def classifyPerson():  # 预测函数
+    resultList = ['not at all', 'in small doses', 'in large doses']
+    percentTats = float(input("percentage of time spent playing video games?"))
+    ffMiles = float(input('frequent flier miles earned per year?'))
+    iceCream = float(input('liters of ice cream consumed per year?'))
+    datingDataMat, datingLabels = file2matrix('datingTestSet2.txt')
+    normMat, ranges, minVals = autoNorm(datingDataMat)
+    inArr = array([ffMiles, percentTats, iceCream])
+    classifierResult = classify0(
+        (inArr - minVals)/ranges, normMat, datingLabels, 3)
+    print("You will probably like this person: ",
+          resultList[classifierResult - 1])
+
+
+# 将图像格式化处理为一个向量，将32*32的二进制图像矩阵转换为1*1024的向量
+def img2vector(filename):
+    returnVect = zeros((1, 1024))
+    fr = open(filename)
+    for i in range(32):
+        lineStr = fr.readline()
+        for j in range(32):
+            returnVect[0, 32*i+j] = int(lineStr[j])
+    return returnVect
+
+
+def handwritingClassTest():
+    hwLabels = []
+    trainingFileList = listdir('trainingDigits')  # 获取目录下的文件列表
+    m = len(trainingFileList)
+    trainingMat = zeros((m, 1024))
+    for i in range(m):
+        fileNameStr = trainingFileList[i]
+        fileStr = fileNameStr.split('.')[0]
+        classNumStr = int(fileStr.split('_')[0])
+        hwLabels.append(classNumStr)
+        trainingMat[i, :] = img2vector('trainingDigits\%s' % fileNameStr)
+    testFileList = listdir('testDigits')
+    errorCount = 0.0
+    mTest = len(testFileList)
+    for i in range(mTest):
+        fileNameStr = testFileList[i]
+        fileStr = fileNameStr.split('.')[0]
+        classNumStr = int(fileStr.split('_')[0])
+        vectorUnderTest = img2vector('testDigits\%s' % fileNameStr)
+        classifierResult = classify0(vectorUnderTest, trainingMat, hwLabels, 3)
+        print('The classifier came back with: %d, the real answer is: %d'
+              % (classifierResult, classNumStr))
+        if classifierResult != classNumStr:
+            errorCount += 1.0
+    print('\nThe total number of errors is: %d' % errorCount)
+    print('\nThe total error rate is %f' % (errorCount/float(mTest)))
